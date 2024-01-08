@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "voiceclonar"
+version = "0.1.0"
+description = ""
+authors = ["nahue-passano <passano43632@estudiantes.untref.edu.ar>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+speechbrain = "^0.5.16"
+librosa = "^0.10.1"
+natsort = "^8.4.0"
+pandas = "^2.1.4"
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.28.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
