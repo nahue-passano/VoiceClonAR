@@ -1,0 +1,4 @@
+features:
+  xvector:
+    source: "speechbrain/spkrec-xvect-voxceleb"
+
