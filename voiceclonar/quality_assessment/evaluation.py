@@ -1,10 +1,12 @@
-from typing import Union, Dict, List
+from typing import Union, Dict, List, Tuple
 from pathlib import Path
 
 import torch
+import torchaudio
 import numpy as np
 import pandas as pd
 from scipy.spatial import distance
+from torchaudio.pipelines import SQUIM_OBJECTIVE
 
 from voiceclonar.quality_assessment.feature_extraction import XVectorExtractor
 from voiceclonar.quality_assessment import utils as qa_utils
@@ -45,6 +47,18 @@ class SyntheticSpeechQA:
         else:
             raise ValueError(f"Unknown method for calculate distance: {by}")
 
+    def predict_params_squim(self, audio_path: Union[Path, str]) -> Tuple:
+        audio_array, sr = torchaudio.load(audio_path)
+
+        if sr != SQUIM_OBJECTIVE.sample_rate:
+            audio_array = torchaudio.functional.resample(
+                audio_array, sr, SQUIM_OBJECTIVE.sample_rate
+            )
+
+        squim_model = SQUIM_OBJECTIVE.get_model()
+        stoi, pesq, sisdr = squim_model(audio_array)
+        return stoi.item(), pesq.item(), sisdr.item()
+
     def _evaluate_batch(
         self, audio_paths: Dict, reference_paths: Dict = None
     ) -> pd.DataFrame:
@@ -61,7 +75,17 @@ class SyntheticSpeechQA:
             else:
                 similarity = np.nan
 
-            batch_evaluation.append({"audio_name": audio_i, "similarity": similarity})
+            # SQUIM objective parameters prediction
+            stoi, pesq, sisdr = self.predict_params_squim(path_i)
+            batch_evaluation.append(
+                {
+                    "audio_name": audio_i,
+                    "STOI": stoi,
+                    "PESQ": pesq,
+                    "SISDR": sisdr,
+                    "Similarity": similarity,
+                }
+            )
 
         return pd.DataFrame(batch_evaluation)
 
