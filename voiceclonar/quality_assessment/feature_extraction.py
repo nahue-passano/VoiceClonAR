@@ -3,6 +3,7 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 
 from speechbrain.pretrained import SpeakerRecognition
+from nemo.collections.asr.models import EncDecSpeakerLabelModel
 import torch
 import torchaudio
 
@@ -64,3 +65,26 @@ class XVectorExtractor(FeatureExtractor):
         )
         signal, _ = torchaudio.load(audio_path)
         return xvector_model.encode_batch(signal)
+
+
+class TitaNetEmbeddingExtractor(FeatureExtractor):
+    def process_audio(self, audio_path: Union[Path, str]) -> torch.tensor:
+        """
+        Extract embedding with TitaNet from the given audio file.
+
+        Parameters
+        ----------
+        audio_path : Union[Path, str]
+            Path to the audio file from which to calculate embedding.
+
+        Returns
+        -------
+        torch.tensor
+            The extracted embedding as a torch tensor.
+        """
+        titanet_model = EncDecSpeakerLabelModel.from_pretrained(
+            self.cfg.features.titanet.source
+        )
+        embed = titanet_model.get_embedding(audio_path).squeeze()
+
+        return embed / torch.linalg.norm(embed)
