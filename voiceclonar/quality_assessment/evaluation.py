@@ -8,14 +8,21 @@ import pandas as pd
 from scipy.spatial import distance
 from torchaudio.pipelines import SQUIM_OBJECTIVE
 
-from voiceclonar.quality_assessment.feature_extraction import XVectorExtractor
+from voiceclonar.quality_assessment.feature_extraction import (
+    XVectorExtractor,
+    TitaNetEmbeddingExtractor,
+)
+from voiceclonar.quality_assessment.nisqa.NISQA_model import nisqaModel
 from voiceclonar.quality_assessment import utils as qa_utils
+from voiceclonar.utils import load_config
+
+CFG_PATH = Path("voiceclonar/quality_assessment/cfg.yaml")
 
 
 class SyntheticSpeechQA:
-    def __init__(self):
-        self.feature_extractor = XVectorExtractor()
-        self.similarity_by = "cosine"
+    def __init__(self, cfg: Path = CFG_PATH):
+        self.cfg = load_config(cfg)
+        self.feature_extractor = TitaNetEmbeddingExtractor()
 
     def set_hparams(self, hparams: Dict):
         for param, value in hparams.items():
@@ -29,25 +36,23 @@ class SyntheticSpeechQA:
     def get_hparams(self) -> None:
         return self.__dict__
 
-    def measure_similarity(
-        self, embed_1: torch.tensor, embed_2: torch.tensor, by: str = None
+    def calculate_similarity(
+        self, embed_1: torch.tensor, embed_2: torch.tensor
     ) -> float:
-        if not by:
-            by = self.similarity_by
-
         if embed_1.ndim > 1:
             embed_1 = embed_1.squeeze()
 
         if embed_2.ndim > 1:
             embed_2 = embed_2.squeeze()
 
-        if hasattr(distance, by):
-            distance_func = getattr(distance, by)
-            return 1 - distance_func(embed_1, embed_2)
-        else:
-            raise ValueError(f"Unknown method for calculate distance: {by}")
+        similarity_score = torch.dot(embed_1, embed_2) / (
+            (torch.dot(embed_1, embed_1) * torch.dot(embed_2, embed_2)) ** 0.5
+        )
+        similarity_score = (similarity_score + 1) / 2
 
-    def predict_params_squim(self, audio_path: Union[Path, str]) -> Tuple:
+        return similarity_score.item()
+
+    def calculate_squim_objective_params(self, audio_path: Union[Path, str]) -> Tuple:
         audio_array, sr = torchaudio.load(audio_path)
 
         if sr != SQUIM_OBJECTIVE.sample_rate:
@@ -58,6 +63,16 @@ class SyntheticSpeechQA:
         squim_model = SQUIM_OBJECTIVE.get_model()
         stoi, pesq, sisdr = squim_model(audio_array)
         return stoi.item(), pesq.item(), sisdr.item()
+
+    def calculate_nisqa(self, audio_path: Union[Path, str], model_name: "str"):
+        if isinstance(audio_path, Path):
+            audio_path = str(audio_path)
+
+        model_args = self.cfg.metrics.nisqa.__dict__
+        model_args["pretrained_model"] = f"{model_args['weights']}/{model_name}.tar"
+        model_args["deg"] = audio_path
+        nisqa_results = nisqaModel(model_args).predict()
+        return nisqa_results.iloc[0, 1]
 
     def _evaluate_batch(
         self, audio_paths: Dict, reference_paths: Dict = None
@@ -71,18 +86,25 @@ class SyntheticSpeechQA:
                 audio_i_embed = self.feature_extractor.process_audio(path_i)
                 reference_embed = self.feature_extractor.process_audio(reference_id)
 
-                similarity = self.measure_similarity(audio_i_embed, reference_embed)
+                similarity = self.calculate_similarity(audio_i_embed, reference_embed)
             else:
                 similarity = np.nan
 
-            # SQUIM objective parameters prediction
-            stoi, pesq, sisdr = self.predict_params_squim(path_i)
+            # SQUIM objective parameters
+            stoi, pesq, sisdr = self.calculate_squim_objective_params(path_i)
+
+            # NISQA
+            nisqa_mos = self.calculate_nisqa(path_i, "nisqa_mos_only")
+            nisqa_natmos = self.calculate_nisqa(path_i, "nisqa_tts")
+
             batch_evaluation.append(
                 {
                     "audio_name": audio_i,
                     "STOI": stoi,
                     "PESQ": pesq,
                     "SISDR": sisdr,
+                    "MOS (NISQA)": nisqa_mos,
+                    "NatMOS (NISQA)": nisqa_natmos,
                     "Similarity": similarity,
                 }
             )

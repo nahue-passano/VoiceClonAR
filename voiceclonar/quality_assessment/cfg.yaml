@@ -1,4 +1,18 @@
 features:
   xvector:
     source: "speechbrain/spkrec-xvect-voxceleb"
+  titanet:
+    source: "nvidia/speakerverification_en_titanet_large"
+
+metrics:
+  nisqa:
+    weights: "voiceclonar/quality_assessment/nisqa/weights"
+    mode: "predict_file"
+    tr_bs_val: 1
+    tr_num_workers: 0
+    data_dir: None
+    output_dir: "."
+    csv_file: None
+    csv_deg: None
+    ms_channel: None
 
