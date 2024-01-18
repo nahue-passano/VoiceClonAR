@@ -15,4 +15,7 @@ metrics:
     csv_file: None
     csv_deg: None
     ms_channel: None
+  frechet:
+    model_name: "vggish"
+    sample_rate: 16000
 

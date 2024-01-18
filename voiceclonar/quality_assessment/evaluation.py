@@ -13,6 +13,7 @@ from voiceclonar.quality_assessment.feature_extraction import (
     TitaNetEmbeddingExtractor,
 )
 from voiceclonar.quality_assessment.nisqa.NISQA_model import nisqaModel
+from voiceclonar.quality_assessment.frechet_audio_distance import FrechetAudioDistance
 from voiceclonar.quality_assessment import utils as qa_utils
 from voiceclonar.utils import load_config
 
@@ -74,6 +75,25 @@ class SyntheticSpeechQA:
         nisqa_results = nisqaModel(model_args).predict()
         return nisqa_results.iloc[0, 1]
 
+    def calculate_frechet_audio_distance(
+        self, audio_path_1: Union[Path, str], audio_path_2: Union[Path, str]
+    ) -> float:
+        if isinstance(audio_path_1, Path):
+            audio_path_1 = str(audio_path_1)
+
+        if isinstance(audio_path_2, Path):
+            audio_path_2 = str(audio_path_2)
+
+        frechet = FrechetAudioDistance(
+            model_name=self.cfg.metrics.frechet.model_name,
+            sample_rate=self.cfg.metrics.frechet.sample_rate,
+            use_pca=False,
+            use_activation=False,
+            verbose=False,
+        )
+
+        return frechet.score(audio_path_1, audio_path_2)
+
     def _evaluate_batch(
         self, audio_paths: Dict, reference_paths: Dict = None
     ) -> pd.DataFrame:
@@ -87,8 +107,14 @@ class SyntheticSpeechQA:
                 reference_embed = self.feature_extractor.process_audio(reference_id)
 
                 similarity = self.calculate_similarity(audio_i_embed, reference_embed)
+
+                # Frechet Audio Distance
+                frechet_distance = self.calculate_frechet_audio_distance(
+                    path_i, reference_id
+                )
             else:
                 similarity = np.nan
+                frechet_distance = np.nan
 
             # SQUIM objective parameters
             stoi, pesq, sisdr = self.calculate_squim_objective_params(path_i)
@@ -106,6 +132,7 @@ class SyntheticSpeechQA:
                     "MOS (NISQA)": nisqa_mos,
                     "NatMOS (NISQA)": nisqa_natmos,
                     "Similarity": similarity,
+                    "Frechet Audio Distance": frechet_distance,
                 }
             )
 

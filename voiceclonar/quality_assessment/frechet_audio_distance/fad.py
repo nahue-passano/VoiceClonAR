@@ -390,24 +390,35 @@ class FrechetAudioDistance:
 
         return diff.dot(diff) + np.trace(sigma1) + np.trace(sigma2) - 2 * tr_covmean
 
-    def __load_audio_files(self, dir, dtype="float32"):
+    def __load_audio_files(self, path, dtype="float32"):
         task_results = []
 
         pool = ThreadPool(self.audio_load_worker)
-        pbar = tqdm(total=len(os.listdir(dir)), disable=(not self.verbose))
+
+        # Check if path is a file or a directory
+        if os.path.isfile(path):
+            files = [path]  # Treat the path as a single file
+        else:
+            files = [
+                os.path.join(path, fname) for fname in os.listdir(path)
+            ]  # Treat the path as a directory
+
+        pbar = tqdm(total=len(files), disable=(not self.verbose))
 
         def update(*a):
             pbar.update()
 
         if self.verbose:
-            print("[Frechet Audio Distance] Loading audio from {}...".format(dir))
-        for fname in os.listdir(dir):
+            print("[Frechet Audio Distance] Loading audio from {}...".format(path))
+
+        for file_path in files:
             res = pool.apply_async(
                 load_audio_task,
-                args=(os.path.join(dir, fname), self.sample_rate, self.channels, dtype),
+                args=(file_path, self.sample_rate, self.channels, dtype),
                 callback=update,
             )
             task_results.append(res)
+
         pool.close()
         pool.join()
 
