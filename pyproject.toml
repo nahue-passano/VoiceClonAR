@@ -23,6 +23,7 @@ transformers = "<=4.30.2"
 torchaudio = "*" 
 encodec = "*" 
 torchvision = "^0.16.2"
+seaborn = "^0.13.1"
 
 
 [tool.poetry.group.dev.dependencies]
