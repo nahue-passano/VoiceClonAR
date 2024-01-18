@@ -8,9 +8,3 @@ repos:
         always_run: false
         pass_filenames: true
         types: [python]
-      - id: clear-jupyter-outputs
-        name: Clear Jupyter Notebook Outputs
-        entry: jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
-        language: system
-        files: \.ipynb$
-        pass_filenames: true
