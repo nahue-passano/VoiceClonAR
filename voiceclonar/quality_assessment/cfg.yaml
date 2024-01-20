@@ -16,6 +16,6 @@ metrics:
     csv_deg: None
     ms_channel: None
   frechet:
-    model_name: "vggish"
+    model_name: "pann"
     sample_rate: 16000
 
