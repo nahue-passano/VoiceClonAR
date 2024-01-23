@@ -24,6 +24,8 @@ torchaudio = "*"
 encodec = "*" 
 torchvision = "^0.16.2"
 seaborn = "^0.13.1"
+plotly = "^5.18.0"
+umap-learn = "^0.5.5"
 
 
 [tool.poetry.group.dev.dependencies]
